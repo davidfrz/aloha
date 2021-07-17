@@ -1,0 +1,55 @@
+<html>
+<body>
+<pre>
+<h1>µVision Build Log</h1>
+<h2>Project:</h2>
+C:\Users\Administrator\Desktop\×Ö¿âLCD12864Òº¾§\Òº¾§.uvproj
+Project File Date:  <unknown>
+
+<h2>Output:</h2>
+Build target 'Target 1'
+compiling 7920_580b.c...
+linking...
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?INITINA2?7920_580B
+Program Size: data=13.1 xdata=0 code=1642
+creating hex file from "Òº¾§"...
+"Òº¾§" - 0 Error(s), 1 Warning(s).
+Build target 'Target 1'
+compiling 7920_580b.c...
+linking...
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?INITINAL?7920_580B
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?_LCD_MESG?7920_580B
+*** WARNING L1: UNRESOLVED EXTERNAL SYMBOL
+    SYMBOL:  _DISPLAYGRAPHIC
+    MODULE:  7920_580b.obj (7920_580B)
+*** WARNING L2: REFERENCE MADE TO UNRESOLVED EXTERNAL
+    SYMBOL:  _DISPLAYGRAPHIC
+    MODULE:  7920_580b.obj (7920_580B)
+    ADDRESS: 0650H
+Program Size: data=13.1 xdata=0 code=1639
+creating hex file from "Òº¾§"...
+"Òº¾§" - 0 Error(s), 4 Warning(s).
+Build target 'Target 1'
+compiling 7920_580b.c...
+linking...
+*** WARNING L16: UNCALLED SEGMENT, IGNORED FOR OVERLAY PROCESS
+    SEGMENT: ?PR?INITINA2?7920_580B
+Program Size: data=13.1 xdata=0 code=1657
+creating hex file from "Òº¾§"...
+"Òº¾§" - 0 Error(s), 1 Warning(s).
+Build target 'Target 1'
+compiling 7920_580b.c...
+linking...
+*** WARNING L1: UNRESOLVED EXTERNAL SYMBOL
+    SYMBOL:  _DISPLAYGRAPHIC
+    MODULE:  7920_580b.obj (7920_580B)
+*** WARNING L2: REFERENCE MADE TO UNRESOLVED EXTERNAL
+    SYMBOL:  _DISPLAYGRAPHIC
+    MODULE:  7920_580b.obj (7920_580B)
+    ADDRESS: 05E3H
+Program Size: data=13.1 xdata=0 code=1681
+creating hex file from "Òº¾§"...
+"Òº¾§" - 0 Error(s), 2 Warning(s).

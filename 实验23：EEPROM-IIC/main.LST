@@ -1,0 +1,689 @@
+C51 COMPILER V9.00   MAIN                                                                  08/02/2019 00:03:38 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: E:\Keil\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          /**************************************************************************************
+   2          *                             EEPROM-IIC实验                                                                                              *
+   3          实现现象：具体接线操作请看视频。
+   4                            下载程序后数码管后4位显示0，按K1保存显示的数据，按K2读取上次保存的数据，
+   5                            按K3显示数据加一，按K4显示数据清零。最大能写入的数据是255.
+   6                            
+   7          注意事项：由于P3.2口跟红外线共用，所以做按键实验时为了不让红外线影响实验效果，最好把红外线先取下来。                                            
+             -                                                                                                                  
+   8          ***************************************************************************************/
+   9          
+  10          #include "reg52.h"                       //此文件中定义了单片机的一些特殊功能寄存器
+  11          #include "i2c.h"        
+  12          
+  13          typedef unsigned int u16;         //对数据类型进行声明定义
+  14          typedef unsigned char u8;
+  15          
+  16          sbit LSA=P2^2;
+  17          sbit LSB=P2^3;
+  18          sbit LSC=P2^4;
+  19          
+  20          sbit k1=P3^1;
+  21          sbit k2=P3^0;
+  22          sbit k3=P3^2;
+  23          sbit k4=P3^3;    //定义按键端口
+  24          
+  25          char num=0;
+  26          u8 disp[4];
+  27          u8 code smgduan[10]={0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x07,0x7f,0x6f};
+  28          
+  29          /*******************************************************************************
+  30          * 函 数 名         : delay
+  31          * 函数功能                 : 延时函数，i=1时，大约延时10us
+  32          *******************************************************************************/
+  33          void delay(u16 i)
+  34          {
+  35   1              while(i--);     
+  36   1      }
+  37          
+  38          
+  39          /*******************************************************************************
+  40          * 函数名         :Keypros()
+  41          * 函数功能               :按键处理函数
+  42          * 输入           : 无
+  43          * 输出           : 无
+  44          *******************************************************************************/
+  45          void Keypros()
+  46          {
+  47   1              if(k1==0)
+  48   1              {
+  49   2                      delay(1000);  //消抖处理
+  50   2                      if(k1==0)
+  51   2                      {
+  52   3                              At24c02Write(1,num);   //在地址1内写入数据num
+  53   3                      }
+  54   2                      while(!k1);
+C51 COMPILER V9.00   MAIN                                                                  08/02/2019 00:03:38 PAGE 2   
+
+  55   2              }
+  56   1              if(k2==0)
+  57   1              {
+  58   2                      delay(1000);  //消抖处理
+  59   2                      if(k2==0)
+  60   2                      {
+  61   3                              num=At24c02Read(1);       //读取EEPROM地址1内的数据保存在num中
+  62   3                      }
+  63   2                      while(!k2);
+  64   2              }
+  65   1              if(k3==0)
+  66   1              {
+  67   2                      delay(100);  //消抖处理
+  68   2                      if(k3==0)
+  69   2                      {
+  70   3                              num++;     //数据加1
+  71   3                              if(num>255)num=0;
+  72   3                      }
+  73   2                      while(!k3);
+  74   2              }
+  75   1              if(k4==0)
+  76   1              {
+  77   2                      delay(1000);  //消抖处理
+  78   2                      if(k4==0)
+  79   2                      {
+  80   3                              num=0;           //数据清零
+  81   3                      }
+  82   2                      while(!k4);
+  83   2              }               
+  84   1      }
+  85          
+  86          /*******************************************************************************
+  87          * 函数名         :datapros()
+  88          * 函数功能               :数据处理函数
+  89          * 输入           : 无
+  90          * 输出           : 无
+  91          *******************************************************************************/
+  92          //void datapros()
+  93          //{
+  94          //      disp[0]=smgduan[num/1000];//千位
+  95          //      disp[1]=smgduan[num%1000/100];//百位
+  96          //      disp[2]=smgduan[num%1000%100/10];//个位
+  97          //      disp[3]=smgduan[num%1000%100%10];               
+  98          //}
+  99          //
+ 100          //
+ 101          ///*******************************************************************************
+ 102          //* 函数名         :DigDisplay()
+ 103          //* 函数功能             :数码管显示函数
+ 104          //* 输入           : 无
+ 105          //* 输出                 : 无
+ 106          //*******************************************************************************/
+ 107          //void DigDisplay()
+ 108          //{
+ 109          //      u8 i;
+ 110          //      for(i=0;i<4;i++)
+ 111          //      {
+ 112          //              switch(i)        //位选，选择点亮的数码管，
+ 113          //              {
+ 114          //                      case(0):
+ 115          //                              LSA=0;LSB=0;LSC=0; break;//显示第0位
+ 116          //                      case(1):
+C51 COMPILER V9.00   MAIN                                                                  08/02/2019 00:03:38 PAGE 3   
+
+ 117          //                              LSA=1;LSB=0;LSC=0; break;//显示第1位
+ 118          //                      case(2):
+ 119          //                              LSA=0;LSB=1;LSC=0; break;//显示第2位
+ 120          //                      case(3):
+ 121          //                              LSA=1;LSB=1;LSC=0; break;//显示第3位    
+ 122          //              }
+ 123          //              P0=disp[i];//发送数据
+ 124          //              delay(100); //间隔一段时间扫描  
+ 125          //              P0=0x00;//消隐
+ 126          //      }               
+ 127          //}
+ 128          
+ 129          /*******************************************************************************
+ 130          * 函 数 名       : main
+ 131          * 函数功能               : 主函数
+ 132          * 输    入       : 无
+ 133          * 输    出       : 无
+ 134          *******************************************************************************/
+ 135          void main()
+ 136          {       
+ 137   1              while(1)
+ 138   1              {
+ 139   2                      Keypros();       //按键处理函数
+ 140   2                      datapros();      //数据处理函数
+*** WARNING C206 IN LINE 140 OF MAIN.C: 'datapros': missing function-prototype
+ 141   2                      DigDisplay();//数码管显示函数           
+*** WARNING C206 IN LINE 141 OF MAIN.C: 'DigDisplay': missing function-prototype
+ 142   2              }               
+ 143   1      }
+ 144          //  /*哈哈哈哈哈哈哈哈哈*/
+ 145          // //*************************************************************
+ 146          //   ////*****************************************************调试函数
+ 147          //
+ 148          //void DebugEepromService(void)
+ 149          //
+ 150          //{
+ 151          //
+ 152          //unchar debug_buf[255];
+ 153          //
+ 154          //debug_buf[0]=0x91;
+ 155          //
+ 156          //debug_buf[1]=0x92;
+ 157          //
+ 158          //debug_buf[2]=0x93;
+ 159          //
+ 160          //debug_buf[3]=0x94;
+ 161          //
+ 162          //debug_buf[4]=0x95;
+ 163          //
+ 164          //debug_buf[250]=0x05;
+ 165          //
+ 166          //debug_buf[251]=0x06;
+ 167          //
+ 168          //debug_buf[252]=0x07;
+ 169          //
+ 170          //debug_buf[253]=0x08;
+ 171          //
+ 172          //debug_buf[254]=0x09;
+ 173          //
+ 174          //SeqWriteTo24c256(EEP1_ADDR,1,255,debug_buf);
+ 175          //
+ 176          //SeqReadFrom24c256(EEP1_ADDR,1,255,debug_buf);
+C51 COMPILER V9.00   MAIN                                                                  08/02/2019 00:03:38 PAGE 4   
+
+ 177          //
+ 178          //}
+ 179          //
+ 180          //
+ 181          //#define IIC_SDA_PB 0x20
+ 182          //
+ 183          //#define IIC_SCL_PB 0x80
+ 184          //
+ 185          //#define IIC_DEL_WAIT 0x10 //>4.7us(12.80us) for Fre=11.0592M
+ 186          //
+ 187          //#define IIC_DEL_WRITE 0x2700 //>6ms(7266.54us=7.266ms) for Fre=11.0592M
+ 188          //
+ 189          //#define EEP1_ADDR 0xa4
+ 190          //
+ 191          //#define PAGE_CAP_BYTE 64 //24C256页写容量:64字节
+ 192          //
+ 193          ///*
+ 194          //
+ 195          //功能函数文件
+ 196          //
+ 197          //2005-9-22 9:54 by xth
+ 198          //
+ 199          //版本: v1.0
+ 200          //
+ 201          //--------------------------------------------
+ 202          //
+ 203          //Mcu: mega32 Fr ency: 11.0592M
+ 204          //
+ 205          //--------------------------------------------
+ 206          //
+ 207          //功能概述:Eeprom操作文件
+ 208          //
+ 209          //--------------------------------------------
+ 210          //
+ 211          //*/
+ 212          //
+ 213          ////=============================函数声明
+ 214          //
+ 215          ////----------IIC操作调用函数
+ 216          //
+ 217          //void IicDelayService(unint delay_time);
+ 218          //
+ 219          //void IicStartBitSend(void);
+ 220          //
+ 221          //void IicStopBitSend(void);
+ 222          //
+ 223          //void IicAckService(unchar ack_data);
+ 224          //
+ 225          //unchar IicSendByteService(unchar tx_data);
+ 226          //
+ 227          //unchar IicAccByteService(void);
+ 228          //
+ 229          ////----------At24c256
+ 230          //
+ 231          //unchar RandWriteByteTo24c256(unchar sla_add,unint addr_op,unchar data_op);
+ 232          //
+ 233          //unchar WritePageTo24c256(unchar sla_add,unint addr_op,unchar *write_data_buf);
+ 234          //
+ 235          //unchar SeqWriteTo24c256ByPage(unchar sla_add,unint addr_op,unchar write_size,unchar *write_buf);
+ 236          //
+ 237          //unchar SeqWriteTo24c256(unchar sla_add,unint addr_op,unchar write_size,unchar *write_buf);
+ 238          //
+C51 COMPILER V9.00   MAIN                                                                  08/02/2019 00:03:38 PAGE 5   
+
+ 239          //unchar SeqReadFrom24c256(unchar sla_add,unint addr_op,unchar read_size,unchar *read_buf);
+ 240          //
+ 241          ////=============================函数定义
+ 242          //
+ 243          //void IicDelayService(unint delay_count)
+ 244          //
+ 245          //{
+ 246          //
+ 247          //unint count;
+ 248          //
+ 249          //for(count=0;count<delay_count;count++)
+ 250          //
+ 251          //asm("NOP");
+ 252          //
+ 253          //}
+ 254          //
+ 255          //void IicStartBitSend(void)
+ 256          //
+ 257          //{
+ 258          //
+ 259          //PORTB |= IIC_SCL_PB; //发送起始条件的时钟信号
+ 260          //
+ 261          //asm("NOP");
+ 262          //
+ 263          //PORTB |= IIC_SDA_PB; //起始条件建立时间大于4.7us,延时
+ 264          //
+ 265          //IicDelayService(IIC_DEL_WAIT);
+ 266          //
+ 267          //PORTB &= ~IIC_SDA_PB;
+ 268          //
+ 269          //IicDelayService(IIC_DEL_WAIT);
+ 270          //
+ 271          //PORTB &= ~IIC_SCL_PB; //钳住I2C ，准备发送或接收数据
+ 272          //
+ 273          //asm("NOP");
+ 274          //
+ 275          //}
+ 276          //
+ 277          //void IicStopBitSend(void)
+ 278          //
+ 279          //{
+ 280          //
+ 281          //PORTB &= ~IIC_SDA_PB;//发送结束条件的时钟信号
+ 282          //
+ 283          //IicDelayService(IIC_DEL_WAIT);
+ 284          //
+ 285          //PORTB |= IIC_SCL_PB; //结束条件建立时间大于4μs
+ 286          //
+ 287          //IicDelayService(IIC_DEL_WAIT);
+ 288          //
+ 289          //PORTB |= IIC_SDA_PB;
+ 290          //
+ 291          //asm("NOP");
+ 292          //
+ 293          //}
+ 294          //
+ 295          //void IicAckService(unchar ack_data)
+ 296          //
+ 297          //{//作为主控器件应答->发应答或非应答信号
+ 298          //
+ 299          //if(ack_data==0) PORTB &= ~IIC_SDA_PB;
+ 300          //
+C51 COMPILER V9.00   MAIN                                                                  08/02/2019 00:03:38 PAGE 6   
+
+ 301          //else PORTB |= IIC_SDA_PB;
+ 302          //
+ 303          //IicDelayService(IIC_DEL_WAIT);
+ 304          //
+ 305          //PORTB |= IIC_SCL_PB;
+ 306          //
+ 307          //IicDelayService(IIC_DEL_WAIT);
+ 308          //
+ 309          //PORTB &= ~IIC_SCL_PB;//清时钟线，钳住I2C总线以便继续接收
+ 310          //
+ 311          //asm("NOP");
+ 312          //
+ 313          //}
+ 314          //
+ 315          //unchar IicSendByteService(unchar tx_data)
+ 316          //
+ 317          //{//将字节发送出去,可以是地址,也可以是数据,发完后等待应答并返回
+ 318          //
+ 319          //unchar bit_count,ack_flag;
+ 320          //
+ 321          //for(bit_count=0;bit_count<8;bit_count++)
+ 322          //
+ 323          //{
+ 324          //
+ 325          //if((tx_data<<bit_count)&0x80)
+ 326          //
+ 327          //PORTB |= IIC_SDA_PB;
+ 328          //
+ 329          //else
+ 330          //
+ 331          //PORTB &= ~IIC_SDA_PB;
+ 332          //
+ 333          //IicDelayService(IIC_DEL_WAIT);
+ 334          //
+ 335          //PORTB |= IIC_SCL_PB; //置时钟线为高，通知被控器开始接收数据位
+ 336          //
+ 337          //IicDelayService(IIC_DEL_WAIT); //保证时钟高电平周期大于4μs
+ 338          //
+ 339          //PORTB &= ~IIC_SCL_PB;
+ 340          //
+ 341          //}
+ 342          //
+ 343          //IicDelayService(IIC_DEL_WAIT);
+ 344          //
+ 345          //PORTB &= ~IIC_SDA_PB;
+ 346          //
+ 347          //DDRB &= ~IIC_SDA_PB; //SDA置成输入
+ 348          //
+ 349          //asm("NOP");
+ 350          //
+ 351          //PORTB |= IIC_SCL_PB;
+ 352          //
+ 353          //IicDelayService(IIC_DEL_WAIT);
+ 354          //
+ 355          //IicDelayService(IIC_DEL_WAIT);
+ 356          //
+ 357          //if(PINB&IIC_SDA_PB) //判断是否接收到应答信号
+ 358          //
+ 359          //ack_flag=NO;
+ 360          //
+ 361          //else
+ 362          //
+C51 COMPILER V9.00   MAIN                                                                  08/02/2019 00:03:38 PAGE 7   
+
+ 363          //ack_flag=YES; //有应答信号
+ 364          //
+ 365          //DDRB |= IIC_SDA_PB;
+ 366          //
+ 367          //PORTB &= ~IIC_SCL_PB;
+ 368          //
+ 369          //asm("NOP");
+ 370          //
+ 371          //return(ack_flag);
+ 372          //
+ 373          //}
+ 374          //
+ 375          //unchar IicAccByteService(void)
+ 376          //
+ 377          //{//接收从器件传来的数据,并判断总线错误
+ 378          //
+ 379          //unchar bit_count,get_data;
+ 380          //
+ 381          //DDRB &= ~IIC_SDA_PB;
+ 382          //
+ 383          //get_data=0;
+ 384          //
+ 385          //for(bit_count=0;bit_count<8;bit_count++)
+ 386          //
+ 387          //{
+ 388          //
+ 389          //asm("NOP");
+ 390          //
+ 391          //PORTB &= ~IIC_SCL_PB; //置时钟线为低，准备接收数据位
+ 392          //
+ 393          //IicDelayService(IIC_DEL_WAIT); //时钟低电平周期大于4.7μs;
+ 394          //
+ 395          //PORTB |= IIC_SCL_PB; //置时钟线为高使数据线上数据有效
+ 396          //
+ 397          //get_data<<=1;
+ 398          //
+ 399          //if(PINB&IIC_SDA_PB)
+ 400          //
+ 401          //get_data++;
+ 402          //
+ 403          //asm("NOP");
+ 404          //
+ 405          //asm("NOP");
+ 406          //
+ 407          //}
+ 408          //
+ 409          //PORTB &= ~IIC_SCL_PB;
+ 410          //
+ 411          //DDRB |= IIC_SDA_PB;
+ 412          //
+ 413          //asm("NOP");
+ 414          //
+ 415          //return(get_data);
+ 416          //
+ 417          //}
+ 418          //
+ 419          //unchar RandWriteByteTo24c256(unchar sla_add,unint addr_op,unchar data_op)
+ 420          //
+ 421          //{
+ 422          //
+ 423          //unchar result_now,temp_data;
+ 424          //
+C51 COMPILER V9.00   MAIN                                                                  08/02/2019 00:03:38 PAGE 8   
+
+ 425          //IicStartBitSend(); //起始条件
+ 426          //
+ 427          //temp_data=sla_add; //从器件地址
+ 428          //
+ 429          //result_now=IicSendByteService(temp_data);
+ 430          //
+ 431          //if(result_now==NO) return(result_now);
+ 432          //
+ 433          //temp_data=addr_op>>8; //操作单元地址高8位
+ 434          //
+ 435          //result_now=IicSendByteService(temp_data);
+ 436          //
+ 437          //if(result_now==NO) return(result_now);
+ 438          //
+ 439          //temp_data=addr_op; //操作单元地址低8位
+ 440          //
+ 441          //result_now=IicSendByteService(temp_data);
+ 442          //
+ 443          //if(result_now==NO) return(result_now);
+ 444          //
+ 445          //temp_data=data_op; //操作数据
+ 446          //
+ 447          //result_now=IicSendByteService(temp_data);
+ 448          //
+ 449          //if(result_now==NO) return(result_now);
+ 450          //
+ 451          //IicStopBitSend(); //停止条件
+ 452          //
+ 453          //IicDelayService(IIC_DEL_WRITE);
+ 454          //
+ 455          //result_now=YES;
+ 456          //
+ 457          //return(result_now);
+ 458          //
+ 459          //}
+ 460          //
+ 461          //unchar SeqReadFrom24c256(unchar sla_add,unint addr_op,unchar read_size,unchar *read_buf)
+ 462          //
+ 463          //{//addr “roll over” during read:from last byte of the last page, to the first byte of the first page
+ 464          //
+ 465          //unchar result_now,temp_data,read_count;
+ 466          //
+ 467          //IicStartBitSend(); //起始条件
+ 468          //
+ 469          //temp_data=sla_add; //从器件地址
+ 470          //
+ 471          //result_now=IicSendByteService(temp_data);
+ 472          //
+ 473          //if(result_now==NO) return(result_now);
+ 474          //
+ 475          //temp_data=addr_op>>8; //操作单元地址高8位
+ 476          //
+ 477          //result_now=IicSendByteService(temp_data);
+ 478          //
+ 479          //if(result_now==NO) return(result_now);
+ 480          //
+ 481          //temp_data=addr_op; //操作单元地址低8位
+ 482          //
+ 483          //result_now=IicSendByteService(temp_data);
+ 484          //
+ 485          //if(result_now==NO) return(result_now);
+ 486          //
+C51 COMPILER V9.00   MAIN                                                                  08/02/2019 00:03:38 PAGE 9   
+
+ 487          //IicStartBitSend();
+ 488          //
+ 489          //temp_data=sla_add+1; //读操作
+ 490          //
+ 491          //result_now=IicSendByteService(temp_data);
+ 492          //
+ 493          //if(result_now==NO) return(result_now);
+ 494          //
+ 495          //for(read_count=0;read_count<read_size-1;read_count++)
+ 496          //
+ 497          //{ //连续读数据
+ 498          //
+ 499          //*(read_buf+read_count)=IicAccByteService();
+ 500          //
+ 501          //IicAckService(NO);
+ 502          //
+ 503          //}
+ 504          //
+ 505          //*(read_buf+read_count)=IicAccByteService();
+ 506          //
+ 507          //IicAckService(YES);
+ 508          //
+ 509          //IicStopBitSend();
+ 510          //
+ 511          //result_now=YES;
+ 512          //
+ 513          //return(result_now);
+ 514          //
+ 515          //}
+ 516          //
+ 517          //unchar WritePageTo24c256(unchar sla_add,unint addr_op,unchar *write_data_buf)
+ 518          //
+ 519          //{//页写
+ 520          //
+ 521          //unchar count,result_now,temp_data;
+ 522          //
+ 523          //IicStartBitSend(); //起始条件
+ 524          //
+ 525          //temp_data=sla_add; //从器件地址
+ 526          //
+ 527          //result_now=IicSendByteService(temp_data);
+ 528          //
+ 529          //if(result_now==NO) return(result_now);
+ 530          //
+ 531          //temp_data=addr_op>>8; //操作单元地址高8位
+ 532          //
+ 533          //result_now=IicSendByteService(temp_data);
+ 534          //
+ 535          //if(result_now==NO) return(result_now);
+ 536          //
+ 537          //temp_data=addr_op; //操作单元地址低8位
+ 538          //
+ 539          //result_now=IicSendByteService(temp_data);
+ 540          //
+ 541          //if(result_now==NO) return(result_now);
+ 542          //
+ 543          //for(count=0;count<PAGE_CAP_BYTE;count++)
+ 544          //
+ 545          //{//连续写
+ 546          //
+ 547          //temp_data=*(write_data_buf+count);
+ 548          //
+C51 COMPILER V9.00   MAIN                                                                  08/02/2019 00:03:38 PAGE 10  
+
+ 549          //result_now=IicSendByteService(temp_data);
+ 550          //
+ 551          //if(result_now==NO) return(result_now);
+ 552          //
+ 553          //}
+ 554          //
+ 555          //IicStopBitSend(); //停止条件
+ 556          //
+ 557          //IicDelayService(IIC_DEL_WRITE);
+ 558          //
+ 559          //result_now=YES;
+ 560          //
+ 561          //return(result_now);
+ 562          //
+ 563          //}
+ 564          //
+ 565          //unchar SeqWriteTo24c256ByPage(unchar sla_add,unint addr_op,unchar write_size,unchar *write_buf)
+ 566          //
+ 567          //{//addr “roll over” during write:from last byte of the current page to first byte of the same page.
+ 568          //
+ 569          //unint page_write,read_addr,temp_op_int;
+ 570          //
+ 571          //unchar data_count,result_out,modify_count,count,write_data_buf[PAGE_CAP_BYTE];
+ 572          //
+ 573          //result_out=YES;
+ 574          //
+ 575          //data_count=0;
+ 576          //
+ 577          //while(write_size>0)
+ 578          //
+ 579          //{
+ 580          //
+ 581          //page_write=addr_op/PAGE_CAP_BYTE; //得到当前页
+ 582          //
+ 583          //read_addr=page_write*PAGE_CAP_BYTE;
+ 584          //
+ 585          //SeqReadFrom24c256(sla_add,read_addr,PAGE_CAP_BYTE,write_data_buf);
+ 586          //
+ 587          //temp_op_int=addr_op&(PAGE_CAP_BYTE-1); //得到在页内的起始字节地址
+ 588          //
+ 589          //if(temp_op_int+write_size>=PAGE_CAP_BYTE)
+ 590          //
+ 591          //{
+ 592          //
+ 593          //modify_count=PAGE_CAP_BYTE;
+ 594          //
+ 595          //addr_op=(page_write+1)*PAGE_CAP_BYTE; //写下一页的起始地址
+ 596          //
+ 597          //}
+ 598          //
+ 599          //else
+ 600          //
+ 601          //modify_count=write_size;
+ 602          //
+ 603          //count=temp_op_int;
+ 604          //
+ 605          //write_size=write_size-modify_count+count; //写下一页的数据量
+ 606          //
+ 607          //for(;count<modify_count;count++,data_count++)
+ 608          //
+ 609          //write_data_buf[count]=*(write_buf+data_count);
+ 610          //
+C51 COMPILER V9.00   MAIN                                                                  08/02/2019 00:03:38 PAGE 11  
+
+ 611          //result_out=WritePageTo24c256(sla_add,read_addr,write_data_buf);
+ 612          //
+ 613          //}
+ 614          //
+ 615          //return(result_out);
+ 616          //
+ 617          //}
+ 618          //
+ 619          //unchar SeqWriteTo24c256(unchar sla_add,unint addr_op,unchar write_size,unchar *write_buf)
+ 620          //
+ 621          //{//连续写(非页写)
+ 622          //
+ 623          //unchar write_result;
+ 624          //
+ 625          //if(write_size<3)
+ 626          //
+ 627          //{//如果要写入的数据小于3个,则用随机写实现
+ 628          //
+ 629          //write_result=RandWriteByteTo24c256(sla_add,addr_op,*write_buf);
+ 630          //
+ 631          //write_result=RandWriteByteTo24c256(sla_add,addr_op+1,*(write_buf+1));
+ 632          //
+ 633          //}
+ 634          //
+ 635          //else
+ 636          //
+ 637          //write_result=SeqWriteTo24c256ByPage(sla_add,addr_op,write_size,write_buf);
+ 638          //
+ 639          //return(write_result);
+ 640          //
+ 641          //}
+ 642          //
+ 643          //
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    119    ----
+   CONSTANT SIZE    =     10    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      5    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  2 WARNING(S),  0 ERROR(S)
